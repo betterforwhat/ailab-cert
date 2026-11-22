@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>AI LAB 수료증 확인</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:image" content="https://betterforwhat.github.io/ailab-cert/seal-512.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
   :root {
@@ -19,7 +22,8 @@
     line-height: 1.6; word-break: keep-all; overflow-wrap: anywhere;
   }
   main { max-width: 480px; margin: 0 auto; padding: 28px 16px 40px; }
-  .brand { display: flex; align-items: baseline; gap: 10px; color: var(--navy); }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--navy); }
+  .brand img { width: 28px; height: 28px; }
   .brand b { font-family: "Times New Roman", serif; font-size: 22px; letter-spacing: .02em; }
   .brand span { font-size: 13px; color: var(--muted); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 24px 22px; margin-top: 18px; }
@@ -46,12 +50,12 @@
   .foot { margin-top: 22px; font-size: 12.5px; color: var(--muted); }
   .foot code { font-size: 12px; }
   input { width: 100%; font: inherit; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
-  .seal { width: 56px; height: 56px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #F4DDA0, var(--gold) 70%); display: grid; place-items: center; color: #fff; font: 700 12px/1.1 "Times New Roman", serif; text-align: center; float: right; box-shadow: 0 2px 6px rgba(120,90,30,.25); }
+  .seal { float: right; width: 84px; height: 84px; margin: -6px -4px 0 8px; filter: drop-shadow(0 3px 6px rgba(120,90,30,.25)); }
 </style>
 </head>
 <body>
 <main>
-  <div class="brand"><b>AI LAB</b><span>수료증 발급 확인</span></div>
+  <div class="brand"><img src="favicon.png" alt=""><b>AI LAB</b><span>수료증 발급 확인</span></div>
   <div id="app"><div class="card"><p class="sub">확인하는 중…</p></div></div>
   <div class="foot" id="foot"></div>
 </main>
@@ -117,7 +121,7 @@ async function main() {
   }
 
   app.replaceChildren($(`<div class="card">
-      <div class="seal">AI<br>LAB</div>
+      <img class="seal" src="seal.png" alt="AI LAB 인증 씰">
       <span class="badge ok">✓ AI LAB 공식 수료증</span>
       <div class="name">${esc(name)}</div>
       <p class="sub">AI LAB 1기 교육과정을 수료했습니다.</p>
