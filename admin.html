@@ -67,7 +67,15 @@
 <script>
 const { ethers } = window;
 const BASE = { chainId: '0x2105', chainName: 'Base', rpcUrls: ['https://mainnet.base.org'], nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, blockExplorerUrls: ['https://basescan.org'] };
-let cfg, provider, signer, contract, people = [];
+let cfg, provider, signer, contract, people = [], FEE = {};
+// Base 수수료: 기본값(우선 수수료 1 gwei)은 Base에서 지나치게 높아 실제 기본 요금에 맞춥니다.
+async function updFee() {
+  if (!provider) return;
+  const b = await provider.getBlock('latest');
+  const tip = ethers.parseUnits('0.002', 'gwei');
+  FEE = { maxPriorityFeePerGas: tip, maxFeePerGas: b.baseFeePerGas * 3n + tip };
+}
+const ov = () => ({ ...FEE });
 const st = (m) => { document.getElementById('status').textContent = m; };
 const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const tid = (p) => BigInt(parseInt(p['발급번호'], 36));  // 발급번호(36진수) → 토큰 번호
@@ -113,6 +121,7 @@ async function connect() {
   catch (e) { if (e.code === 4902) await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [BASE] }); else throw e; }
   provider = new ethers.BrowserProvider(window.ethereum);
   signer = await provider.getSigner();
+  await updFee();
   const bal = await provider.getBalance(signer.address);
   document.getElementById('acct').textContent = `${signer.address}\n잔액 ${Number(ethers.formatEther(bal)).toFixed(5)} ETH`;
   if (cfg.contract || localStorage.getItem('ailab.contract')) useContract(cfg.contract || localStorage.getItem('ailab.contract'));
@@ -132,7 +141,8 @@ async function deploy() {
   if (cfg.contract && !confirm('이미 공식 계약이 있습니다. 새로 배포하면 컬렉션 주소가 바뀝니다. 계속할까요?')) return;
   const f = new ethers.ContractFactory(AILAB_CONTRACT.abi, AILAB_CONTRACT.bytecode, signer);
   st('배포: MetaMask에서 승인해 주세요…');
-  const c = await f.deploy(cfg.siteUrl + 'meta/');
+  await updFee();
+  const c = await f.deploy(cfg.siteUrl + 'meta/', ov());
   st('배포: 블록에 담기는 중…');
   await c.waitForDeployment();
   const addr = await c.getAddress();
@@ -141,6 +151,7 @@ async function deploy() {
 }
 
 async function refresh() {
+  try { await updFee(); } catch {}
   for (const p of people) {
     p.hash = await sha(`AILAB|${p['발급번호']}|${p['이름'].normalize('NFC').trim()}|${p['QR키']}`);
     p.onHash = null; p.holder = null;
@@ -186,23 +197,24 @@ function render() {
 document.getElementById('rows').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-a]'); if (!b) return;
   const p = people[+b.dataset.i], id = tid(p);
-  if (b.dataset.a === 'reg') guard(() => txWait(contract.register([id], [p.hash]), `${p['이름']} 등록`));
+  if (b.dataset.a === 'reg') guard(() => txWait(contract.register([id], [p.hash], ov()), `${p['이름']} 등록`));
   if (b.dataset.a === 'issue') guard(async () => {
-    if (p.onHash !== p.hash) await txWait(contract.register([id], [p.hash]), `${p['이름']} 등록`);
-    await txWait(contract.issue(id, p['지갑주소']), `${p['이름']} 발급`);
+    if (p.onHash !== p.hash) await txWait(contract.register([id], [p.hash], ov()), `${p['이름']} 등록`);
+    await updFee();
+    await txWait(contract.issue(id, p['지갑주소'], ov()), `${p['이름']} 발급`);
   });
   if (b.dataset.a === 'move' && confirm(`${p['이름']} NFT를\n${p.holder}\n→ ${p['지갑주소']}\n로 옮길까요?`))
-    guard(() => txWait(contract.reassign(id, p['지갑주소']), `${p['이름']} 주소 수정`));
+    guard(() => txWait(contract.reassign(id, p['지갑주소'], ov()), `${p['이름']} 주소 수정`));
   if (b.dataset.a === 'revoke' && confirm(`${p['이름']} NFT 발급을 취소(소각)할까요? 나중에 다시 발급할 수 있습니다.`))
-    guard(() => txWait(contract.revoke(id), `${p['이름']} 발급 취소`));
+    guard(() => txWait(contract.revoke(id, ov()), `${p['이름']} 발급 취소`));
 });
 document.getElementById('bRegAll').onclick = () => guard(() => {
   const list = people.filter(p => p.onHash !== null && p.onHash !== p.hash);
-  return txWait(contract.register(list.map(tid), list.map(p => p.hash)), `${list.length}명 등록`);
+  return txWait(contract.register(list.map(tid), list.map(p => p.hash), ov()), `${list.length}명 등록`);
 });
 document.getElementById('bIssueAll').onclick = () => guard(() => {
   const list = people.filter(p => p.holder && /^0x0{40}$/.test(p.holder) && isAddr(p['지갑주소']));
-  return txWait(contract.issueBatch(list.map(tid), list.map(p => p['지갑주소'])), `${list.length}명 발급`);
+  return txWait(contract.issueBatch(list.map(tid), list.map(p => p['지갑주소']), ov()), `${list.length}명 발급`);
 });
 document.getElementById('bConnect').onclick = () => connect().catch(e => st('연결 실패: ' + (e.shortMessage || e.message)));
 document.getElementById('bDeploy').onclick = () => deploy().then(refresh).catch(e => st('배포 실패: ' + (e.shortMessage || e.message)));
