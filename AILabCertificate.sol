@@ -13,6 +13,8 @@ contract AILabCertificate {
 
     address public owner;
     string public baseURI;
+    /// 컬렉션 정보(이름·설명·씰 이미지) JSON 주소 (ERC-7572)
+    string public contractURI;
 
     /// 발급번호 => 이름 지문. 0이면 등록되지 않은 번호입니다.
     mapping(uint256 => bytes32) public certHash;
@@ -29,6 +31,7 @@ contract AILabCertificate {
     event BatchMetadataUpdate(uint256 _fromTokenId, uint256 _toTokenId);
     event Registered(uint256 indexed tokenId, bytes32 certHash);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event ContractURIUpdated();
 
     error NotOwner();
     error Soulbound();
@@ -43,9 +46,10 @@ contract AILabCertificate {
         _;
     }
 
-    constructor(string memory baseURI_) {
+    constructor(string memory baseURI_, string memory contractURI_) {
         owner = msg.sender;
         baseURI = baseURI_;
+        contractURI = contractURI_;
         emit OwnershipTransferred(address(0), msg.sender);
     }
 
@@ -97,13 +101,22 @@ contract AILabCertificate {
     }
 
     /// 발급 취소(소각). 등록은 남으므로 다시 issue 할 수 있습니다.
-    function revoke(uint256 tokenId) external onlyOwner {
+    function revoke(uint256 tokenId) public onlyOwner {
         address from = _holders[tokenId];
         if (from == address(0)) revert NotIssued(tokenId);
         _balances[from] -= 1;
         delete _holders[tokenId];
         issuedCount--;
         emit Transfer(from, address(0), tokenId);
+    }
+
+    function revokeBatch(uint256[] calldata tokenIds) external onlyOwner {
+        for (uint256 i = 0; i < tokenIds.length; i++) revoke(tokenIds[i]);
+    }
+
+    function setContractURI(string calldata uri) external onlyOwner {
+        contractURI = uri;
+        emit ContractURIUpdated();
     }
 
     function setBaseURI(string calldata uri) external onlyOwner {
