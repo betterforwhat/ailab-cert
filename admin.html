@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>AI LAB 수료증 관리</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script src="contract.js"></script>
+<style>
+  :root { --navy:#11294B; --gold:#B68F4D; --paper:#FBF8F2; --ink:#1D2633; --muted:#6B6458; --line:#E6DDCB;
+          --ok:#1F7A4D; --ok-bg:#E7F4EC; --warn:#8A5A00; --warn-bg:#FFF4DB; --bad:#B3261E; --bad-bg:#FCE8E6; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); line-height:1.55; word-break:keep-all;
+         font-family: Pretendard, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 26px; color: var(--navy); margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 20px; }
+  .steps { display:grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .step { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; }
+  .step b { display:block; color:var(--navy); margin-bottom:4px; }
+  .step .n { color: var(--gold); font-weight: 800; margin-right: 6px; }
+  .step p { margin: 0 0 10px; font-size: 13.5px; color: var(--muted); }
+  button { font: inherit; font-size: 14px; font-weight: 600; border: 0; border-radius: 9px; padding: 9px 13px; cursor: pointer;
+           background: var(--navy); color: #fff; }
+  button.ghost { background: #fff; color: var(--navy); border: 1px solid var(--line); }
+  button:disabled { opacity: .4; cursor: default; }
+  input[type=text] { font: inherit; font-size: 13px; padding: 8px 10px; border:1px solid var(--line); border-radius: 8px; width: 100%; }
+  .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; word-break: break-all; }
+  .status { margin: 16px 0; padding: 12px 14px; border-radius: 10px; background: #fff; border: 1px solid var(--line); font-size: 14px; min-height: 22px; white-space: pre-wrap; }
+  .tablewrap { overflow-x: auto; background:#fff; border:1px solid var(--line); border-radius:14px; margin-top: 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { border-top: 0; color: var(--muted); font-weight: 600; font-size: 13px; background: #FDFBF7; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { display:inline-block; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .pill.ok { color: var(--ok); background: var(--ok-bg); } .pill.wait { color: var(--warn); background: var(--warn-bg); }
+  .pill.bad { color: var(--bad); background: var(--bad-bg); } .pill.none { color: var(--muted); background: #F1EEE8; }
+  .acts { display:flex; gap:6px; flex-wrap: wrap; }
+  .acts button { padding: 6px 10px; font-size: 13px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>AI LAB 수료증 관리</h1>
+  <p class="lead">운영진 지갑(MetaMask)으로만 작동합니다. 다른 사람이 이 페이지를 열어도 계약 소유자가 아니면 아무것도 바꿀 수 없습니다.</p>
+
+  <div class="steps">
+    <div class="step"><b><span class="n">1</span>지갑 연결</b><p>MetaMask를 Base 네트워크로 연결합니다.</p><button id="bConnect">지갑 연결</button> <div id="acct" class="mono" style="margin-top:8px"></div></div>
+    <div class="step"><b><span class="n">2</span>명단 불러오기</b><p>이 컴퓨터의 <span class="mono">수료증_NFT/명단.csv</span>를 고릅니다. 파일은 어디에도 올라가지 않습니다.</p><input type="file" id="fCsv" accept=".csv"></div>
+    <div class="step"><b><span class="n">3</span>컬렉션 계약</b><p id="cDesc">한 번만 배포합니다(인원 제한 없음).</p>
+      <input type="text" id="tContract" placeholder="0x… 계약 주소" class="mono"><div style="margin-top:8px; display:flex; gap:6px"><button id="bDeploy">새로 배포</button><button class="ghost" id="bUse">이 주소 사용</button></div></div>
+    <div class="step"><b><span class="n">4</span>한 번에 처리</b><p>미등록 번호를 체인에 등록하고, 주소가 있는 사람에게 발급합니다.</p>
+      <div style="display:flex; gap:6px; flex-wrap:wrap"><button id="bRegAll" disabled>미등록 등록</button><button id="bIssueAll" disabled>주소 있는 사람 발급</button></div></div>
+  </div>
+
+  <div class="status" id="status">지갑을 연결하고 명단을 불러오세요.</div>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>순번</th><th>이름</th><th>발급번호</th><th>명단의 지갑 주소</th><th>체인 등록</th><th>NFT</th><th>처리</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="7" style="color:var(--muted)">명단을 불러오면 여기에 표시됩니다.</td></tr></tbody>
+  </table></div>
+  <p class="note">주소를 새로 받거나 고칠 때: <span class="mono">./tool addr 이름 0x주소</span> → <span class="mono">./tool publish</span> → 이 페이지에서 명단을 다시 불러와 '발급' 또는 '주소 수정'을 누릅니다. 추가 발급은 <span class="mono">./tool add 이름</span> 후 '등록'을 누르세요.</p>
+</main>
+<script>
+const { ethers } = window;
+const BASE = { chainId: '0x2105', chainName: 'Base', rpcUrls: ['https://mainnet.base.org'], nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, blockExplorerUrls: ['https://basescan.org'] };
+let cfg, provider, signer, contract, people = [];
+const st = (m) => { document.getElementById('status').textContent = m; };
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const isAddr = (a) => /^0x[0-9a-fA-F]{40}$/.test(a || '');
+const same = (a, b) => (a || '').toLowerCase() === (b || '').toLowerCase();
+
+async function sha(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return '0x' + [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function parseCsv(text) {
+  text = text.replace(/^﻿/, '');
+  const out = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; }
+    else if (c === '"') q = true; else if (c === ',') { row.push(cur); cur = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cur); out.push(row); row = []; cur = ''; }
+    else cur += c;
+  }
+  if (cur || row.length) { row.push(cur); out.push(row); }
+  const [head, ...rest] = out.filter(r => r.some(x => x.trim()));
+  return rest.map(r => Object.fromEntries(head.map((h, i) => [h.trim(), (r[i] || '').trim()])));
+}
+
+async function txWait(p, label) {
+  st(`${label}: MetaMask에서 승인해 주세요…`);
+  const tx = await p;
+  st(`${label}: 전송됨, 블록에 담기는 중…\n${cfg.explorer}/tx/${tx.hash}`);
+  await tx.wait();
+  st(`${label}: 완료\n${cfg.explorer}/tx/${tx.hash}`);
+}
+async function guard(fn) {
+  try { await fn(); } catch (e) { st('실패: ' + (e.shortMessage || e.reason || e.message)); }
+  await refresh();
+}
+
+async function connect() {
+  if (!window.ethereum) { st('MetaMask가 없습니다. Chrome에 MetaMask를 설치한 뒤 다시 열어 주세요.'); return; }
+  await window.ethereum.request({ method: 'eth_requestAccounts' });
+  const want = '0x' + Number(cfg.chainId).toString(16);
+  try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: want }] }); }
+  catch (e) { if (e.code === 4902) await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [BASE] }); else throw e; }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  signer = await provider.getSigner();
+  const bal = await provider.getBalance(signer.address);
+  document.getElementById('acct').textContent = `${signer.address}\n잔액 ${Number(ethers.formatEther(bal)).toFixed(5)} ETH`;
+  if (cfg.contract || localStorage.getItem('ailab.contract')) useContract(cfg.contract || localStorage.getItem('ailab.contract'));
+  st('지갑 연결됨.');
+  await refresh();
+}
+
+function useContract(addr) {
+  if (!isAddr(addr)) { st('계약 주소 형식이 아닙니다.'); return; }
+  document.getElementById('tContract').value = addr;
+  try { localStorage.setItem('ailab.contract', addr); } catch {}
+  contract = new ethers.Contract(addr, AILAB_CONTRACT.abi, signer || provider);
+}
+
+async function deploy() {
+  if (!signer) return st('먼저 지갑을 연결하세요.');
+  if (cfg.contract && !confirm('이미 공식 계약이 있습니다. 새로 배포하면 컬렉션 주소가 바뀝니다. 계속할까요?')) return;
+  const f = new ethers.ContractFactory(AILAB_CONTRACT.abi, AILAB_CONTRACT.bytecode, signer);
+  st('배포: MetaMask에서 승인해 주세요…');
+  const c = await f.deploy(cfg.siteUrl + 'meta/');
+  st('배포: 블록에 담기는 중…');
+  await c.waitForDeployment();
+  const addr = await c.getAddress();
+  useContract(addr);
+  st(`배포 완료: ${addr}\n터미널에서 ./tool contract ${addr} 를 실행한 뒤 ./tool publish 로 확인 페이지에 연결하세요.`);
+}
+
+async function refresh() {
+  for (const p of people) {
+    p.hash = await sha(`AILAB|${p['발급번호']}|${p['이름'].normalize('NFC').trim()}|${p['QR키']}`);
+    p.onHash = null; p.holder = null;
+  }
+  if (contract) {
+    await Promise.all(people.map(async p => {
+      try { p.onHash = await contract.certHash(p['발급번호']); p.holder = await contract.holderOf(p['발급번호']); } catch {}
+    }));
+  }
+  render();
+}
+
+function render() {
+  const tb = document.getElementById('rows');
+  if (!people.length) return;
+  const can = !!(contract && signer);
+  tb.innerHTML = people.map((p, i) => {
+    const reg = p.onHash == null ? '<span class="pill none">—</span>'
+      : p.onHash === p.hash ? '<span class="pill ok">등록됨</span>'
+      : /^0x0+$/.test(p.onHash) ? '<span class="pill wait">미등록</span>' : '<span class="pill bad">내용 다름</span>';
+    const issued = p.holder && !/^0x0{40}$/.test(p.holder);
+    const nft = p.holder == null ? '<span class="pill none">—</span>'
+      : !issued ? (isAddr(p['지갑주소']) ? '<span class="pill wait">발급 대기</span>' : '<span class="pill none">주소 미제출</span>')
+      : same(p.holder, p['지갑주소']) ? `<span class="pill ok">발급됨</span>`
+      : `<span class="pill bad">명단과 다른 주소</span><div class="mono">${esc(p.holder)}</div>`;
+    const acts = [];
+    if (can && p.onHash !== null && p.onHash !== p.hash) acts.push(`<button data-a="reg" data-i="${i}">등록</button>`);
+    if (can && !issued && isAddr(p['지갑주소'])) acts.push(`<button data-a="issue" data-i="${i}">발급</button>`);
+    if (can && issued && isAddr(p['지갑주소']) && !same(p.holder, p['지갑주소'])) acts.push(`<button data-a="move" data-i="${i}">주소 수정</button>`);
+    if (can && issued) acts.push(`<button class="ghost" data-a="revoke" data-i="${i}">발급 취소</button>`);
+    return `<tr><td class="num">${esc(p['순번'])}</td><td><b>${esc(p['이름'])}</b></td><td class="num">AI LAB-2026-${esc(p['발급번호'])}</td>
+      <td class="mono">${esc(p['지갑주소'] || '—')}</td><td>${reg}</td><td>${nft}</td><td><div class="acts">${acts.join('')}</div></td></tr>`;
+  }).join('');
+  const needReg = people.filter(p => p.onHash !== null && p.onHash !== p.hash);
+  const needIssue = people.filter(p => p.holder && /^0x0{40}$/.test(p.holder) && isAddr(p['지갑주소']));
+  const bR = document.getElementById('bRegAll'), bI = document.getElementById('bIssueAll');
+  bR.disabled = !can || !needReg.length; bR.textContent = `미등록 ${needReg.length}명 등록`;
+  bI.disabled = !can || !needIssue.length || needIssue.some(p => p.onHash !== p.hash);
+  bI.textContent = `주소 있는 ${needIssue.length}명 발급`;
+  bI.title = needIssue.some(p => p.onHash !== p.hash) ? '먼저 등록을 마쳐 주세요' : '';
+}
+
+document.getElementById('rows').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-a]'); if (!b) return;
+  const p = people[+b.dataset.i], id = p['발급번호'];
+  if (b.dataset.a === 'reg') guard(() => txWait(contract.register([id], [p.hash]), `${p['이름']} 등록`));
+  if (b.dataset.a === 'issue') guard(async () => {
+    if (p.onHash !== p.hash) await txWait(contract.register([id], [p.hash]), `${p['이름']} 등록`);
+    await txWait(contract.issue(id, p['지갑주소']), `${p['이름']} 발급`);
+  });
+  if (b.dataset.a === 'move' && confirm(`${p['이름']} NFT를\n${p.holder}\n→ ${p['지갑주소']}\n로 옮길까요?`))
+    guard(() => txWait(contract.reassign(id, p['지갑주소']), `${p['이름']} 주소 수정`));
+  if (b.dataset.a === 'revoke' && confirm(`${p['이름']} NFT 발급을 취소(소각)할까요? 나중에 다시 발급할 수 있습니다.`))
+    guard(() => txWait(contract.revoke(id), `${p['이름']} 발급 취소`));
+});
+document.getElementById('bRegAll').onclick = () => guard(() => {
+  const list = people.filter(p => p.onHash !== null && p.onHash !== p.hash);
+  return txWait(contract.register(list.map(p => p['발급번호']), list.map(p => p.hash)), `${list.length}명 등록`);
+});
+document.getElementById('bIssueAll').onclick = () => guard(() => {
+  const list = people.filter(p => p.holder && /^0x0{40}$/.test(p.holder) && isAddr(p['지갑주소']));
+  return txWait(contract.issueBatch(list.map(p => p['발급번호']), list.map(p => p['지갑주소'])), `${list.length}명 발급`);
+});
+document.getElementById('bConnect').onclick = () => connect().catch(e => st('연결 실패: ' + (e.shortMessage || e.message)));
+document.getElementById('bDeploy').onclick = () => deploy().then(refresh).catch(e => st('배포 실패: ' + (e.shortMessage || e.message)));
+document.getElementById('bUse').onclick = () => { useContract(document.getElementById('tContract').value.trim()); refresh(); };
+document.getElementById('fCsv').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  people = parseCsv(await f.text()).filter(p => p['이름'] && p['발급번호']);
+  const bad = people.filter(p => p['지갑주소'] && !isAddr(p['지갑주소']));
+  st(`${people.length}명 불러옴.` + (bad.length ? ` 주소 형식이 틀린 사람: ${bad.map(p => p['이름']).join(', ')}` : ''));
+  await refresh();
+};
+fetch('config.json', { cache: 'no-store' }).then(r => r.json()).then(c => {
+  cfg = c;
+  if (cfg.contract) { document.getElementById('tContract').value = cfg.contract; document.getElementById('cDesc').textContent = '공식 계약이 연결되어 있습니다.'; }
+});
+</script>
+</body>
+</html>

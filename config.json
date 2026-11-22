@@ -1,0 +1,12 @@
+{
+ "siteUrl": "https://betterforwhat.github.io/ailab-cert/",
+ "chainId": 8453,
+ "chainName": "Base",
+ "rpc": [
+  "https://mainnet.base.org",
+  "https://base-rpc.publicnode.com",
+  "https://base.llamarpc.com"
+ ],
+ "explorer": "https://basescan.org",
+ "contract": ""
+}
