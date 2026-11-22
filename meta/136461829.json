@@ -1,12 +1,16 @@
 {
  "name": "AI LAB 1기 수료증 · 김명근",
  "description": "김명근 님이 AI LAB 1기 교육과정(2026년 9월~11월)을 수료했음을 증명합니다. 한국토지신탁 사내동아리 AI LAB이 발급한 양도 불가 수료증입니다.",
- "image": "https://betterforwhat.github.io/ailab-cert/img/741172.png",
- "external_url": "https://betterforwhat.github.io/ailab-cert/?c=741172#k=SXBFWkcF&n=%EA%B9%80%EB%AA%85%EA%B7%BC",
+ "image": "https://betterforwhat.github.io/ailab-cert/img/136461829.png",
+ "external_url": "https://betterforwhat.github.io/ailab-cert/?c=298UMD#k=SXBFWkcF&n=%EA%B9%80%EB%AA%85%EA%B7%BC",
  "attributes": [
   {
    "trait_type": "발급번호",
-   "value": "AI LAB-2026-741172"
+   "value": "AI LAB-2026-298UMD"
+  },
+  {
+   "trait_type": "토큰 번호",
+   "value": 136461829
   },
   {
    "trait_type": "기수",

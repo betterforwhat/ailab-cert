@@ -83,7 +83,8 @@ const u256 = (n) => BigInt(n).toString(16).padStart(64, '0');
 async function main() {
   const q = new URLSearchParams(location.search);
   const h = new URLSearchParams(location.hash.slice(1));
-  const code = (q.get('c') || '').replace(/\D/g, '');
+  const code = (q.get('c') || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+  const tokenId = code ? parseInt(code, 36) : 0;  // 발급번호를 36진수로 읽은 값 = NFT 토큰 번호
   const key = h.get('k') || '';
   const name = (h.get('n') || '').normalize('NFC').trim();
   const [cfg, reg] = await Promise.all([
@@ -138,8 +139,8 @@ async function main() {
   }
   try {
     const [onHash, holderRaw] = await Promise.all([
-      ethCall(cfg, '0xf19765ed' + u256(code)),  // certHash(uint256)
-      ethCall(cfg, '0xdbacc237' + u256(code)),  // holderOf(uint256)
+      ethCall(cfg, '0xf19765ed' + u256(tokenId)),  // certHash(uint256)
+      ethCall(cfg, '0xdbacc237' + u256(tokenId)),  // holderOf(uint256)
     ]);
     const holder = '0x' + holderRaw.slice(-40);
     const issued = !/^0x0{40}$/.test(holder);
@@ -148,7 +149,7 @@ async function main() {
       : `<div class="row"><span class="dot wait">…</span><div>체인 등록 대기<p>운영진이 곧 Base 체인에 등록합니다.</p></div></div>`);
     rows.push(issued
       ? `<div class="row"><span class="dot ok">✓</span><div>NFT 발급 완료<p>소유 지갑 <span class="mono">${esc(short(holder))}</span> · 양도할 수 없는 수료증입니다.</p>
-          <a class="btn" href="${esc(cfg.explorer)}/nft/${esc(cfg.contract)}/${esc(code)}" target="_blank" rel="noopener">BaseScan에서 발급 기록 보기</a></div></div>`
+          <a class="btn" href="${esc(cfg.explorer)}/nft/${esc(cfg.contract)}/${tokenId}" target="_blank" rel="noopener">BaseScan에서 발급 기록 보기</a></div></div>`
       : `<div class="row"><span class="dot wait">…</span><div>NFT 발급 대기<p>지갑 주소를 AI LAB 운영진에게 보내 주시면 이 번호로 NFT를 발급해 드립니다. 종이 수료증은 그대로 유효하며 다시 인쇄할 필요가 없습니다.</p></div></div>`);
   } catch (e) {
     rows.push(`<div class="row"><span class="dot wait">!</span><div>체인 조회 실패<p>잠시 후 새로고침해 주세요.</p></div></div>`);
